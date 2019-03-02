@@ -11,16 +11,24 @@ public class PlayerController : MonoBehaviour
     public GameObject stompBox;
     [SerializeField] float climbSpeed;
     [SerializeField] float jumpReducer;
-    
 
-    //[SerializeField] GameObject accessPlatform;
-    private PlatformController changeEffector;
+    public bool facingRight = true;
+    private bool ignoreEnemy = false;
 
-    BoxCollider2D myFeet;
+    private float knockbackCounter;
+    public float knockbackXForce;
+    public float knockbackYForce;
+    public float knockbackLength;
+
+    public float invincibilityLength;
+    private float invincibilityCounter;
+ 
+    private float move;
+    public GameObject groundCheck;
     CapsuleCollider2D myBodyCollider;
     Rigidbody2D myRigidBody;
     Animator myAnimator;
-    float gravityScaleAtStart;
+    public float gravityScaleAtStart;
     Vector3 SpawnPosition;
     bool touchingLadder;
     MovingPlatform movingPlatform;
@@ -29,17 +37,17 @@ public class PlayerController : MonoBehaviour
 
 
 
+
+
     // Start is called before the first frame update
     void Start()
     {
         myBodyCollider = GetComponent<CapsuleCollider2D>();
-        myFeet = GetComponent<BoxCollider2D>();
         myRigidBody = GetComponent<Rigidbody2D>();
         myAnimator = GetComponent<Animator>();
         theGameManager = FindObjectOfType<GameManager>();
         gravityScaleAtStart = myRigidBody.gravityScale;
         respawnPosition = transform.position;
-        changeEffector = FindObjectOfType<PlatformController>();
         movingPlatform = FindObjectOfType<MovingPlatform>();
 
     }
@@ -47,19 +55,56 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        Run();
-        ClimbLadder();
-        Jump();
-        FlipSprite();
-        StompBox();
- 
+        if (knockbackCounter <= 0f)
+        {
+            
+            Run();
+        }
 
+        if (knockbackCounter > 0f)
+        {
+            
+            knockbackCounter -= Time.deltaTime;
+
+            if(transform.localScale.x > 0) { 
+                myRigidBody.velocity = new Vector2(-knockbackXForce, knockbackYForce);
+            } else
+            {
+                myRigidBody.velocity = new Vector2(knockbackXForce, knockbackYForce);
+            }  
+        }
+
+        if (invincibilityCounter > 0)
+        {
+            stompBox.SetActive(false);
+            invincibilityCounter -= Time.deltaTime;
+        }
+
+        if (invincibilityCounter <= 0)
+        {
+            stompBox.SetActive(true);
+            theGameManager.invincible = false;
+        }
+        
+        if (move > 0 && !facingRight)
+        {
+            FlipSprite();
+        }
+        else if (move < 0 && facingRight)
+        {
+            FlipSprite();
+        }
+
+        Jump();
+        ClimbLadder();
+        //FlipSprite();
+        StompBox();
     }
 
     private void Run()
     {
-        float controlThrow = CrossPlatformInputManager.GetAxis("Horizontal");
-        Vector2 playerVelocity = new Vector2(controlThrow * runSpeed, myRigidBody.velocity.y);
+        move = CrossPlatformInputManager.GetAxis("Horizontal");
+        Vector2 playerVelocity = new Vector2(move * runSpeed, myRigidBody.velocity.y);
         myRigidBody.velocity = playerVelocity;
 
         bool playerHasHorizontalSpeed = Mathf.Abs(myRigidBody.velocity.x) > Mathf.Epsilon;
@@ -68,7 +113,7 @@ public class PlayerController : MonoBehaviour
 
     private void ClimbLadder()
     {
-        touchingLadder = myFeet.IsTouchingLayers(LayerMask.GetMask("Climbing"));
+        touchingLadder = myBodyCollider.IsTouchingLayers(LayerMask.GetMask("Climbing"));
         
 
         if (!touchingLadder) { 
@@ -87,14 +132,10 @@ public class PlayerController : MonoBehaviour
         float controlThrow = CrossPlatformInputManager.GetAxis("Vertical");
         Vector2 climbVelocity = new Vector2(myRigidBody.velocity.x, controlThrow * climbSpeed);
         myRigidBody.velocity = climbVelocity;
-        
-      
-        
+
+
+
         bool playerHasHorizontalSpeed = Mathf.Abs(myRigidBody.velocity.y) > Mathf.Epsilon;
-
-       
-
-        
 
         myAnimator.SetBool("Climbing", playerHasHorizontalSpeed);
         
@@ -103,22 +144,20 @@ public class PlayerController : MonoBehaviour
 
     private void Jump()
     {
-        grounded = myFeet.IsTouchingLayers(LayerMask.GetMask("Ground"));
+        grounded = groundCheck.GetComponent<Collider2D>().IsTouchingLayers(LayerMask.GetMask("Ground"));
         
 
         if (!grounded) {
             myAnimator.SetBool("Grounded", false);
-
             if (CrossPlatformInputManager.GetButtonUp("Jump"))
             {
                 Vector2 jumpVelocityToAdd = new Vector2(myRigidBody.velocity.x, myRigidBody.velocity.y / jumpReducer);
                 myRigidBody.velocity = jumpVelocityToAdd;
             }
             return;
-        } else if (grounded)
+        } else
         {
             myAnimator.SetBool("Grounded", true);
-     
         }
 
 
@@ -140,16 +179,26 @@ public class PlayerController : MonoBehaviour
 
     private void FlipSprite()
     {
-        bool playerHasHorizontalSpeed = Mathf.Abs(myRigidBody.velocity.x) > Mathf.Epsilon;
-        if (playerHasHorizontalSpeed)
-        {
-            transform.localScale = new Vector2(Mathf.Sign(myRigidBody.velocity.x), 1f);
-        }
+        /*  bool playerHasHorizontalSpeed = Mathf.Abs(myRigidBody.velocity.x) > Mathf.Epsilon;
+          if (playerHasHorizontalSpeed)
+          {
+              transform.localScale = new Vector2(Mathf.Sign(myRigidBody.velocity.x), 1f);
+          } */
+
+        facingRight = !facingRight;
+        Vector3 theScale = transform.localScale;
+        theScale.x *= -1;
+        transform.localScale = theScale;
     }
 
 
 
-
+    public void Knockback()
+    {
+        knockbackCounter = knockbackLength;
+        invincibilityCounter = invincibilityLength;
+        theGameManager.invincible = true;
+    }
 
 
     void OnTriggerEnter2D(Collider2D other)
@@ -157,11 +206,6 @@ public class PlayerController : MonoBehaviour
         if (other.tag == "KillPlane")
         {
             theGameManager.Respawn();
-        }
-
-        if (other.tag == "coin")
-        {
-            other.gameObject.SetActive(false);
         }
 
         if (other.tag == "Checkpoint")
@@ -177,7 +221,8 @@ public class PlayerController : MonoBehaviour
         if (myRigidBody.velocity.y < 0)
         {
             stompBox.SetActive(true);
-        } else
+        }
+        else
         {
             stompBox.SetActive(false);
         }
@@ -188,24 +233,15 @@ public class PlayerController : MonoBehaviour
 
     void OnCollisionEnter2D(Collision2D other)
     {
-       
-
-
         if (other.gameObject.tag == "Platform")
         {
             transform.parent = other.transform;
         }
 
-        /*while (gameObject.GetComponent<Collider2D>().GetType() == typeof(BoxCollider2D))
+        if (other.gameObject.tag == "slope")
         {
-            if (other.gameObject.tag == "main ground")
-            {
-                changeEffector.myPlatformEffector.surfaceArc = 179;
-            } else if (other.gameObject.tag == "effector ground")
-            {
-                changeEffector.myPlatformEffector.surfaceArc = 180;
-            } 
-        }*/
+            myRigidBody.gravityScale = 0f;
+        }
    
     }
 
@@ -216,6 +252,11 @@ public class PlayerController : MonoBehaviour
         if (other.gameObject.tag == "Platform")
         {
             transform.parent = null;
+        }
+
+        if (other.gameObject.tag == "slope")
+        {
+            myRigidBody.gravityScale = gravityScaleAtStart;
         }
     }
 

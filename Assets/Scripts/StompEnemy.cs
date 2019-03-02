@@ -28,10 +28,12 @@ public class StompEnemy : MonoBehaviour
     {
         if (other.tag == "Enemy")
         {
-           
-            Destroy(other.gameObject);
 
-            Instantiate(deadFrog, other.transform.position, other.transform.rotation);
+            other.gameObject.SetActive(false);
+
+            GameObject d = Instantiate(deadFrog, other.transform.position, other.transform.rotation);
+
+            Destroy(d, 2f);
 
             Instantiate(deathSplosion, other.transform.position, other.transform.rotation);
 

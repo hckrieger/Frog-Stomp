@@ -163,4 +163,9 @@ public class PatrolController : MonoBehaviour
 
         }
     }
+
+    void OnEnable()
+    {
+        canMove = false;
+    }
 }

@@ -5,6 +5,7 @@ using UnityEngine;
 public class HurtPlayer : MonoBehaviour
 {
     private GameManager theGameManager;
+    public int damageToGive;
     
     // Start is called before the first frame update
     void Start()
@@ -18,15 +19,17 @@ public class HurtPlayer : MonoBehaviour
 
     }
 
-    void OnTriggerEnter2D(Collider2D other)
+    void OnTriggerStay2D(Collider2D other)
     {
         if (other.tag == "Player")
         {
-            GameObject inst = Instantiate(theGameManager.deadPlayer, other.transform.position, other.transform.rotation);
+            theGameManager.HurtPlayer(damageToGive);
+            theGameManager.UpdateHeartMeter();
+            //GameObject inst = Instantiate(theGameManager.deadPlayer, other.transform.position, other.transform.rotation);
 
-            Destroy(inst, 2f);
+            //Destroy(inst, 2f);
 
-            theGameManager.Respawn();
+            //theGameManager.Respawn();
         }
     }
 }
